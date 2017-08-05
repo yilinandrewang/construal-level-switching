@@ -1,5 +1,5 @@
 # Construal Level Switching Study 4
-# Last updated: 04/12/17
+# Last updated: 08/05/17
 
 #### Prep: Navon ####
 
@@ -41,6 +41,7 @@ for (i in data) {
   error <- mean(dat$Correct == "False")
   
   # 7. Exclude outlier trials (RT) within each participant's data (> +-2 SD)
+  outl <- length(which(abs(dat$RT - mean(dat$RT))/sd(dat$RT) >= 2))/160
   dat <- dat[-which(abs(dat$RT - mean(dat$RT))/sd(dat$RT) >= 2), ]
   
   # 8. Exclude the rest of the trials with incorrect responses
@@ -51,7 +52,7 @@ for (i in data) {
   } else {dat$parID <- c(rep(1:4, dim(dat)[1]/4), 1:(dim(dat)[1]%%4))}
   
   # 10. Calculate mean RTs
-  navon[i, "File"] <- substring(i, 1, nchar(i)-4) # Participant ID
+  navon[i, "SubjectID"] <- substring(i, 1, nchar(i)-4) # Participant ID
   
   # Overall
   navon[i, "n_HiLo"] <- mean(dat$RT[which(dat$levelpre == "High" & 
@@ -65,6 +66,7 @@ for (i in data) {
   navon[i, "n_NoSwitch"] <- mean(dat$RT[which(dat$level == dat$levelpre)])
   navon[i, "n_Switch"] <- mean(dat$RT[which(dat$level != dat$levelpre)])
   navon[i, "n_Error"] <- error
+  navon[i, "n_outl"] <- outl
   navon[i, "n_allsd"] <- sd(dat$RT)
   
   # Block 1
@@ -204,26 +206,55 @@ Boxplot(navon$n_HiLo); Boxplot(navon$n_LoHi) # Note that the IDs are just row #
 Boxplot(navon$n_LoLo); Boxplot(navon$n_HiHi)
 
 # Which rows contain the outliers? (Note that row number != Subject ID)
-which(navon$n_HiLo < 400) # Rows 89 240 268
-which(navon$n_LoHi < 400) # Rows 233 240 268
-which(navon$n_LoLo < 400) # Rows 240 268
-which(navon$n_HiHi < 400) # Rows 89 233 240 268
-# We exclude Rows 240 268
+which(navon$n_HiLo < 450) # Rows 89 233 240 268
+which(navon$n_LoHi < 450) # Rows 89 233 240 268
+which(navon$n_LoLo < 450) # Rows 89 240 268
+which(navon$n_HiHi < 400) # Rows 89 240 268
+# We exclude Rows 89 233 240 268
 
-which(navon$n_HiLo > 1200) # Rows 91 182 195 204 205
-which(navon$n_LoHi > 1100) # Row 91 182 194 195 204
+which(navon$n_HiLo > 1150) # Rows 91 172 182 194 195 204 205
+which(navon$n_LoHi > 1200) # Row 182 205
 which(navon$n_LoLo > 1000) # Rows 2 172 182 205 226
-which(navon$n_HiHi > 1000) # Rows 40  91 194 205 208
-# We exclude Rows 91 182 194 205
+which(navon$n_HiHi > 1000) # Rows  2  40  91 194 204 205 208
+# We exclude Rows 2 91 172 182 194 204 205
 
 # Create n_Exclude variable
 navon$n_Exclude <- 0
-navon$n_Exclude[c(240, 268, 91, 182, 194, 205)] <- 1
+navon$n_Exclude[c(89, 233, 240, 268, 2, 91, 172, 182, 194, 204, 205)] <- 1
 
 # 11. Exclude participants with error rate > 20%
 par(mfrow = c(1, 1))
 hist(navon$n_Error, breaks = 300)
 navon$n_Exclude[which(navon$n_Error > 0.2)] <- 2
+
+mean(navon$n_Error) # Overall error rate 5%
+mean(navon$n_outl) # Overall outlier rate 4%
+length(which(navon$n_Error > 0.2)) # n = 10
+
+#### Level-Switching Cost: Navon ####
+
+navon1 <- navon[which(navon$n_Exclude == 0), 1:5]
+navontest <- stack(navon1, select = c(n_HiLo, n_LoHi, n_LoLo, n_HiHi))
+navontest <- cbind(rep(navon1$SubjectID, 4), navontest)
+navontest$current <- as.factor(substring(navontest$ind, 5))
+navontest$switch <- as.factor(c(rep("Switch", length(navon1$SubjectID) * 2), 
+                                rep("NoSwitch", length(navon1$SubjectID) * 2)))
+colnames(navontest)[1:3] <- c("SubjectID", "RT", "condition")
+
+library(ez)
+# no missing data
+ezDesign(data = navontest, y = SubjectID, x = current, col = switch)
+ezANOVA(data = navontest, dv = RT, wid = SubjectID, within = .(current, switch),
+        type = 3)
+round(mean(navontest$RT[which(navontest$current == "Hi")]), 2)
+round(sd(navontest$RT[which(navontest$current == "Hi")]), 2)
+round(mean(navontest$RT[which(navontest$current == "Lo")]), 2)
+round(sd(navontest$RT[which(navontest$current == "Lo")]), 2)
+
+round(mean(navontest$RT[which(navontest$switch == "Switch")]), 2)
+round(sd(navontest$RT[which(navontest$switch == "Switch")]), 2)
+round(mean(navontest$RT[which(navontest$switch == "NoSwitch")]), 2)
+round(sd(navontest$RT[which(navontest$switch == "NoSwitch")]), 2)
 
 #### Prep: Stroop ####
 
@@ -262,6 +293,7 @@ for (i in data) {
   error <- mean(dat$Correct == "False")
   
   # 6. Exclude outlier trials (RT) within each participant's data (> +-2 SD)
+  outl <- length(which(abs(dat$RT - mean(dat$RT))/sd(dat$RT) >= 2))/160
   dat <- dat[-which(abs(dat$RT - mean(dat$RT))/sd(dat$RT) >= 2), ]
   
   # 7. Exclude the rest of the trials with incorrect responses
@@ -272,12 +304,13 @@ for (i in data) {
   } else {dat$parID <- c(rep(1:4, dim(dat)[1]/4), 1:(dim(dat)[1]%%4))}
   
   # 9. Calculate mean RTs
-  stroop[i, "File"] <- substring(i, 1, nchar(i)-4)
+  stroop[i, "SubjectID"] <- substring(i, 1, nchar(i)-4)
   
   # Overall
   stroop[i, "s_congruent"] <- mean(dat$RT[which(dat$cong == "congruent")])
   stroop[i, "s_incongruent"] <- mean(dat$RT[which(dat$cong == "incongruent")])
   stroop[i, "s_Error"] <- error
+  stroop[i, "s_outl"] <- outl
   stroop[i, "s_allsd"] <- sd(dat$RT)
   
   # Block 1
@@ -341,9 +374,9 @@ rownames(stroop) <- 1:length(data)
 # 10. Visually check for outliers: Across participants
 
 # Histograms
-par(mfrow = c(1, 2))
-hist(stroop$s_congruent, xlim = c(200, 2000), breaks = 300)
-hist(stroop$s_incongruent, xlim = c(200, 2000), breaks = 300)
+par(mfrow = c(2, 1))
+hist(stroop$s_congruent, xlim = c(200, 2000), breaks = 100)
+hist(stroop$s_incongruent, xlim = c(200, 2000), breaks = 100)
 
 # Boxplots
 library(car)
@@ -357,18 +390,28 @@ which(stroop$s_incongruent < 500) # Rows 5 267
 # We exclude Rows 5 267
 
 which(stroop$s_congruent > 1200) # Rows 187 204
-which(stroop$s_incongruent > 1400) # Rows 55 187 204
-# We exclude Rows 187 204
+which(stroop$s_incongruent > 1350) # Rows 55 187 204 261
+# We exclude Rows 55 187 204 261
 
 # Create n_Exclude variable
 stroop$s_Exclude <- 0
-stroop$s_Exclude[c(5, 267, 187, 204)] <- 1
+stroop$s_Exclude[c(5, 267, 55, 187, 204, 261)] <- 1
 
 # 11. Exclude participants with error rate > 20%
 par(mfrow = c(1, 1))
 hist(stroop$s_Error, breaks = 300)
 stroop$s_Exclude[which(stroop$s_Error > 0.2)] <- 2
 
+mean(stroop$s_Error) # Overall error rate 5%
+mean(stroop$s_outl) # Overall outlier rate 4%
+length(which(stroop$s_Error > 0.2)) # n = 8
+
+# Stroop interference ####
+t.test(stroop$s_incongruent, stroop$s_congruent, paired = T)
+mean(stroop$s_incongruent, na.rm = T); sd(stroop$s_incongruent, na.rm = T)
+mean(stroop$s_congruent); sd(stroop$s_congruent)
+library(effsize)
+cohen.d(stroop$s_incongruent, stroop$s_congruent, na.rm = T, paired = T)
 
 #### Prep: Catexe ####
 
@@ -408,6 +451,7 @@ for (i in data) {
   error <- mean(dat$Correct == "False")
   
   # 7. Exclude outlier trials (RT) within each participant's data (> +-2 SD)
+  outl <- length(which(abs(dat$RT - mean(dat$RT))/sd(dat$RT) >= 2))/160
   dat <- dat[-which(abs(dat$RT - mean(dat$RT))/sd(dat$RT) >= 2), ]
   
   # 8. Exclude the rest of the trials with incorrect responses
@@ -418,7 +462,7 @@ for (i in data) {
   } else {dat$parID <- c(rep(1:4, dim(dat)[1]/4), 1:(dim(dat)[1]%%4))}
   
   # 10. Calculate mean RTs
-  catexe[i, "File"] <- substring(i, 1, nchar(i)-4) # ID participants
+  catexe[i, "SubjectID"] <- substring(i, 1, nchar(i)-4) # ID participants
   
   # Overall
   catexe[i, "c_HiLo"] <- mean(dat$RT[which(dat$levelpre == "cat" & 
@@ -432,6 +476,7 @@ for (i in data) {
   catexe[i, "c_NoSwitch"] <- mean(dat$RT[which(dat$level == dat$levelpre)])
   catexe[i, "c_Switch"] <- mean(dat$RT[which(dat$level != dat$levelpre)])
   catexe[i, "c_Error"] <- error
+  catexe[i, "c_outl"] <- outl
   catexe[i, "c_allsd"] <- sd(dat$RT)
   
   # Block 1
@@ -572,100 +617,127 @@ Boxplot(catexe$c_HiLo); Boxplot(catexe$c_LoHi) # Note that the IDs are just row
 Boxplot(catexe$c_LoLo); Boxplot(catexe$c_HiHi)
 
 # Which rows contain the outliers? (Note that row number != Subject ID)
-which(catexe$c_HiLo < 600) # Rows 36 236 272
-which(catexe$c_LoHi < 600) # Rows 36 236 272
-which(catexe$c_LoLo < 600) # Rows 36 236 272
-which(catexe$c_HiHi < 600) # Rows 36 236 272
+which(catexe$c_HiLo < 700) # Rows 36 236 243 272
+which(catexe$c_LoHi < 700) # Rows 36 236 272
+which(catexe$c_LoLo < 700) # Rows 36 236 272
+which(catexe$c_HiHi < 700) # Rows 36 236 272
 # We exclude Rows 36 236 272
 
-which(catexe$c_HiLo > 2300) # Rows 8  61 233 249
-which(catexe$c_LoHi > 2500) # Rows 8  61 233
-which(catexe$c_LoLo > 2200) # Rows 8  61 233
-which(catexe$c_HiHi > 2500) # Rows 8  61 233
-# We exclude Rows 8  61 233
+which(catexe$c_HiLo > 2500) # Rows 8 233 245
+which(catexe$c_LoHi > 2500) # Rows 8  42  61 233 245
+which(catexe$c_LoLo > 2200) # Rows 8  61 233 245
+which(catexe$c_HiHi > 2500) # Rows 8  61 233 245
+# We exclude Rows 8  61 233 245
 
 # Create c_Exclude variable
 catexe$c_Exclude <- 0
-catexe$c_Exclude[c(36, 236, 272, 8, 61, 233)] <- 1
+catexe$c_Exclude[c(36, 236, 272, 8, 61, 233, 245)] <- 1
 
 # 12. Exclude participants with error rate > 20%
 par(mfrow = c(1, 1))
 hist(catexe$c_Error, breaks = 300)
 catexe$c_Exclude[which(catexe$c_Error > 0.2)] <- 2
 
+mean(catexe$c_Error) # Overall error rate 9%
+mean(catexe$c_outl) # Overall outlier rate 8%
+length(which(catexe$c_Error > 0.2)) # n = 12
+
+#### Level-Switching Cost: Catexe ####
+catexe1 <- catexe[which(catexe$c_Exclude == 0), c(1:5, 10)]
+catexetest <- stack(catexe1, select = c(c_HiLo, c_LoHi, c_LoLo, c_HiHi))
+catexetest <- cbind(rep(catexe1$SubjectID, 4), catexetest)
+catexetest$current <- as.factor(substring(catexetest$ind, 5))
+catexetest$switch <- as.factor(c(rep("Switch", length(catexe1$SubjectID) * 2), 
+                                 rep("NoSwitch", length(catexe1$SubjectID) * 2)))
+colnames(catexetest)[1:3] <- c("SubjectID", "RT", "condition")
+
+library(ez)
+# no missing data
+ezDesign(data = catexetest, y = SubjectID, x = current, col = switch)
+ezANOVA(data = catexetest, dv = RT, wid = SubjectID, 
+        within = .(current, switch), type = 3)
+round(mean(catexetest$RT[which(catexetest$current == "Hi")]), 2)
+round(sd(catexetest$RT[which(catexetest$current == "Hi")]), 2)
+round(mean(catexetest$RT[which(catexetest$current == "Lo")]), 2)
+round(sd(catexetest$RT[which(catexetest$current == "Lo")]), 2)
+
+round(mean(catexetest$RT[which(catexetest$switch == "Switch")]), 2)
+round(sd(catexetest$RT[which(catexetest$switch == "Switch")]), 2)
+round(mean(catexetest$RT[which(catexetest$switch == "NoSwitch")]), 2)
+round(sd(catexetest$RT[which(catexetest$switch == "NoSwitch")]), 2)
+
+ezStats(catexetest, dv = RT, wid = SubjectID, within = .(current, switch), 
+        type = 3)
+ezPlot(catexetest, dv = RT, wid = SubjectID, within = .(current, switch),
+       x = switch, split = current, type = 3)
+
+# I tried to alculate simple main effects in SPSS
+setwd(paste("/Users/andrewang/Documents/iLibrary/UC DAVIS/My Research/",
+            "Construal Level Switching/Study 4/Data",
+            sep = ""))
+write.table(catexe1, sep = ",", row.names = F, "Study 4 Catexe.csv")
+
+# Using individual scores
+catexe1$sa <- ((catexe1$c_HiLo - catexe1$c_LoHi) - 
+               (catexe1$c_LoLo - catexe1$c_HiHi))
+t.test(catexe1$sa)
 
 
 #### Data Merger ####
 
 # Assign NAs to data that should be excluded for each task
 colnames(navon)
-navon[which(navon$n_Exclude != 0), 2:65] <- NA
+navon[which(navon$n_Exclude != 0), 2:66] <- NA
 colnames(stroop)
-stroop[which(stroop$s_Exclude != 0), 2:29] <- NA
+stroop[which(stroop$s_Exclude != 0), 2:30] <- NA
 colnames(catexe)
-catexe[which(catexe$c_Exclude != 0), 2:65] <- NA
+catexe[which(catexe$c_Exclude != 0), 2:66] <- NA
 
 # Merge three dataframes into one
 cvg <- merge(catexe, navon, all.x = TRUE)
 cvg <- merge(cvg, stroop, all.x = TRUE)
 
-# Test means
-View(cvg)
-mean(cvg$n_HiLo, na.rm = T)
-mean(cvg$n_LoHi, na.rm = T)
-mean(cvg$n_LoLo, na.rm = T)
-mean(cvg$n_HiHi, na.rm = T)
 
-# Individual Scores (To be updated 170305) ####
-View(cvg)
-str(cvg)
-t.test(cvg$c_NoSwitch, cvg$c_Switch)
-library(plotrix)
-library(effsize)
-cohen.d(cvg$c_NoSwitch, cvg$c_Switch, na.rm = T)
-std.error(cvg$c_Switch)
-std.error(cvg$c_NoSwitch)
+### Convergent and Discriminant Validity Tests ####
 
-t.test(cvg$n_NoSwitch, cvg$n_Switch)
-library(plotrix)
-library(effsize)
-cohen.d(cvg$n_NoSwitch, cvg$n_Switch, na.rm = T)
-std.error(cvg$n_Switch)
-std.error(cvg$n_NoSwitch)
-
-
-### Data Analysis: Switching Cost ####
+# Raw correlations
+colnames(cvg)
+cvg$s_sc <- (cvg$s_congruent - cvg$s_incongruent)/cvg$s_allsd
+cvg$n_sc  <- (cvg$n_Switch - cvg$n_NoSwitch)/cvg$n_allsd
+cvg$c_sc  <- (cvg$c_Switch - cvg$c_NoSwitch)/cvg$c_allsd
+cor.test(cvg$c_sc, cvg$n_sc)
+cor.test(cvg$s_sc, cvg$n_sc)
+cor.test(cvg$s_sc, cvg$c_sc)
 
 library(lavaan);library(ggplot2);library(corrplot)
 library(lmerTest);library(psych);library(semPlot)
 
-# Switching Cost (SC) and Switching Interference (SI), by parcel
-cvg$s_sc_p1 <- (cvg$s_incongruent_p1 - cvg$s_congruent_p1)/cvg$s_allsd_p1
-cvg$s_sc_p2 <- (cvg$s_incongruent_p2 - cvg$s_congruent_p2)/cvg$s_allsd_p2
-cvg$s_sc_p3 <- (cvg$s_incongruent_p3 - cvg$s_congruent_p3)/cvg$s_allsd_p3
-cvg$s_sc_p4 <- (cvg$s_incongruent_p4 - cvg$s_congruent_p4)/cvg$s_allsd_p4
-cvg$c_sc_p1 <- (cvg$c_Switch_p1 - cvg$c_NoSwitch_p1)/cvg$c_allsd_p1
-cvg$c_sc_p2 <- (cvg$c_Switch_p2 - cvg$c_NoSwitch_p2)/cvg$c_allsd_p2
-cvg$c_sc_p3 <- (cvg$c_Switch_p3 - cvg$c_NoSwitch_p3)/cvg$c_allsd_p3
-cvg$c_sc_p4 <- (cvg$c_Switch_p4 - cvg$c_NoSwitch_p4)/cvg$c_allsd_p4
+# Scores by parcel
+
+# Navon
 cvg$n_sc_p1  <- (cvg$n_Switch_p1 - cvg$n_NoSwitch_p1)/cvg$n_allsd_p1
 cvg$n_sc_p2  <- (cvg$n_Switch_p2 - cvg$n_NoSwitch_p2)/cvg$n_allsd_p2
 cvg$n_sc_p3  <- (cvg$n_Switch_p3 - cvg$n_NoSwitch_p3)/cvg$n_allsd_p3
 cvg$n_sc_p4  <- (cvg$n_Switch_p4 - cvg$n_NoSwitch_p4)/cvg$n_allsd_p4
 
-# Visualize SC for the 4 * 3 = 12 parcels
-par(mfrow = c(3, 4))
-hist(cvg$s_sc_p1); hist(cvg$s_sc_p2); hist(cvg$s_sc_p3); hist(cvg$s_sc_p4)
-hist(cvg$n_sc_p1); hist(cvg$n_sc_p2); hist(cvg$n_sc_p3); hist(cvg$n_sc_p4)
-hist(cvg$c_sc_p1); hist(cvg$c_sc_p2); hist(cvg$c_sc_p3); hist(cvg$c_sc_p4)
+# Catexe
+cvg$c_sc_p1 <- (cvg$c_Switch_p1 - cvg$c_NoSwitch_p1)/cvg$c_allsd_p1
+cvg$c_sc_p2 <- (cvg$c_Switch_p2 - cvg$c_NoSwitch_p2)/cvg$c_allsd_p2
+cvg$c_sc_p3 <- (cvg$c_Switch_p3 - cvg$c_NoSwitch_p3)/cvg$c_allsd_p3
+cvg$c_sc_p4 <- (cvg$c_Switch_p4 - cvg$c_NoSwitch_p4)/cvg$c_allsd_p4
 
-# Correlation table of SC and SI scores
+# Stroop
+cvg$s_sc_p1 <- (cvg$s_incongruent_p1 - cvg$s_congruent_p1)/cvg$s_allsd_p1
+cvg$s_sc_p2 <- (cvg$s_incongruent_p2 - cvg$s_congruent_p2)/cvg$s_allsd_p2
+cvg$s_sc_p3 <- (cvg$s_incongruent_p3 - cvg$s_congruent_p3)/cvg$s_allsd_p3
+cvg$s_sc_p4 <- (cvg$s_incongruent_p4 - cvg$s_congruent_p4)/cvg$s_allsd_p4
+
+# Correlation table of measurement scores
 colnames(cvg)
-sc <- subset(cvg[, 161:172])
-cor(sc, use = "pairwise.complete.obs")
-par(mfrow = c(1, 1))
-corrplot(cor(sc, use = "pairwise.complete.obs"), method = "square",
+corrplot(cor(cvg[, 167:178], use = "pairwise.complete.obs"), method = "square",
          shade.col = NULL, tl.col = "black", tl.srt = 45, tl.cex = 1)
+round(cor(cvg[, 167:178], use = "pairwise.complete.obs"), 2)
+
 
 # Model 1
 sc_mod1 <- "
@@ -766,17 +838,3 @@ summary(sa_fit2, fit.measures = TRUE, standardized = TRUE)
 semPaths(sa_fit2, "std", fade = F, style = "lisrel",
          edge.color = 'black', esize = T, nodeLabels = labels,
          edge.label.cex = 0.8, sizeMan = 6, sizeLat = 8)
-
-
-# Sandbox ####
-library(lavaan); library(corrplot)
-navon.test <- navon[which(navon$n_Exclude == 0), ]
-
-n_sc_1  <- (navon.test$n_Switch_p1 - navon.test$n_NoSwitch_p1)/navon.test$n_allsd_p1
-n_sc_2  <- (navon.test$n_Switch_p2 - navon.test$n_NoSwitch_p2)/navon.test$n_allsd_p2
-n_sc_3  <- (navon.test$n_Switch_p3 - navon.test$n_NoSwitch_p3)/navon.test$n_allsd_p3
-n_sc_4  <- (navon.test$n_Switch_p4 - navon.test$n_NoSwitch_p4)/navon.test$n_allsd_p4
-sc <- data.frame(n_sc_1, n_sc_2, n_sc_3, n_sc_4)
-View(sc)
-corrplot(cor(sc, use = "pairwise.complete.obs"), method = "number",
-         shade.col = NULL, tl.col = "black", tl.srt = 45, tl.cex = 1)
